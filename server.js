@@ -1,3 +1,16 @@
+
+import express from "express";
+import cors from "cors";
+
+const app = express();
+
+// ✅ CORS enable karo
+app.use(cors({
+  origin: "*",   // ya sirf: "https://vikas0768.github.io"
+  methods: ["GET", "POST", "DELETE"],
+  allowedHeaders: ["Content-Type"]
+}));
+
 const express = require("express");
 const bodyParser = require("body-parser");
 const fs = require("fs");
