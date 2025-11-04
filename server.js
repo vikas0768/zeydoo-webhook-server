@@ -11,9 +11,11 @@ const WEBHOOK_SECRET = process.env.WEBHOOK_SECRET || "";
 
 // ✅ Enable CORS (for GitHub frontend)
 app.use(cors({
-  origin: "https://vikas0768.github.io/zeydoo-callback-dashboard/",  // or use "*" during testing
+  origin: ["https://vikas0768.github.io",
+ "http://localhost:3000"], 
   methods: ["GET", "POST", "DELETE"],
-  allowedHeaders: ["Content-Type"]
+  allowedHeaders: ["Content-Type"], 
+  credentials: true
 }));
 
 app.use(bodyParser.json());
