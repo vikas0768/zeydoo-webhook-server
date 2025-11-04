@@ -1,17 +1,5 @@
-
-import express from "express";
-import cors from "cors";
-
-const app = express();
-
-// ✅ CORS enable karo
-app.use(cors({
-  origin: "*",   // ya sirf: "https://vikas0768.github.io"
-  methods: ["GET", "POST", "DELETE"],
-  allowedHeaders: ["Content-Type"]
-}));
-
 const express = require("express");
+const cors = require("cors");
 const bodyParser = require("body-parser");
 const fs = require("fs");
 const path = require("path");
@@ -21,12 +9,19 @@ const app = express();
 const PORT = process.env.PORT || 3000;
 const WEBHOOK_SECRET = process.env.WEBHOOK_SECRET || "";
 
+// ✅ Enable CORS (for GitHub frontend)
+app.use(cors({
+  origin: "https://vikas0768.github.io/zeydoo-callback-dashboard/",  // or use "*" during testing
+  methods: ["GET", "POST", "DELETE"],
+  allowedHeaders: ["Content-Type"]
+}));
+
 app.use(bodyParser.json());
 app.use(bodyParser.urlencoded({ extended: true }));
 
 const DATA_FILE = path.join(__dirname, "callbacks.json");
 
-// file create if not exist
+// create callbacks file if not exist
 if (!fs.existsSync(DATA_FILE)) {
   fs.writeFileSync(DATA_FILE, JSON.stringify({ callbacks: [] }, null, 2));
 }
