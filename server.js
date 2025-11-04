@@ -1,8 +1,6 @@
 const express = require("express");
 const cors = require("cors");
 const bodyParser = require("body-parser");
-const fs = require("fs");
-const path = require("path");
 const shortid = require("shortid");
 
 const app = express();
@@ -11,33 +9,27 @@ const WEBHOOK_SECRET = process.env.WEBHOOK_SECRET || "";
 
 // ✅ Enable CORS (for GitHub frontend)
 app.use(cors({
-  origin: ["https://vikas0768.github.io",
- "http://localhost:3000"], 
+  origin: [
+    "https://vikas0768.github.io",
+    "http://localhost:3000"
+  ],
   methods: ["GET", "POST", "DELETE"],
-  allowedHeaders: ["Content-Type"], 
+  allowedHeaders: ["Content-Type"],
   credentials: true
 }));
 
 app.use(bodyParser.json());
 app.use(bodyParser.urlencoded({ extended: true }));
 
-const DATA_FILE = path.join(__dirname, "callbacks.json");
-
-// create callbacks file if not exist
-if (!fs.existsSync(DATA_FILE)) {
-  fs.writeFileSync(DATA_FILE, JSON.stringify({ callbacks: [] }, null, 2));
-}
+// ✅ Use in-memory store instead of file system
+let CALLBACKS = [];
 
 function readData() {
-  try {
-    return JSON.parse(fs.readFileSync(DATA_FILE));
-  } catch {
-    return { callbacks: [] };
-  }
+  return { callbacks: CALLBACKS };
 }
 
 function writeData(data) {
-  fs.writeFileSync(DATA_FILE, JSON.stringify(data, null, 2));
+  CALLBACKS = data.callbacks;
 }
 
 // 1️⃣ webhook endpoint (Zeydoo se callback yahan aayega)
@@ -80,6 +72,7 @@ app.delete("/api/callbacks/:id", (req, res) => {
   res.json({ ok: true, removed });
 });
 
+// Root route
 app.get("/", (req, res) => res.send("✅ Zeydoo Webhook Server Running!"));
 
 app.listen(PORT, () => console.log(`Server running on port ${PORT}`));
