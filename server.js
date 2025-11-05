@@ -32,16 +32,16 @@ function writeData(data) {
   CALLBACKS = data.callbacks;
 }
 
-// 1️⃣ webhook endpoint (Zeydoo se callback yahan aayega)
-app.post("/webhook", (req, res) => {
-  if (WEBHOOK_SECRET) {
-    const incoming = req.header("x-webhook-secret") || req.query.secret || "";
-    if (incoming !== WEBHOOK_SECRET) {
-      return res.status(401).json({ ok: false, message: "Invalid secret" });
-    }
+// ✅ 1️⃣ Webhook endpoint (Zeydoo GET or POST dono send kar sakta hai)
+app.all("/webhook", (req, res) => {
+  const incoming = req.header("x-webhook-secret") || req.query.secret || "";
+  if (WEBHOOK_SECRET && incoming !== WEBHOOK_SECRET) {
+    return res.status(401).json({ ok: false, message: "Invalid secret" });
   }
 
-  const payload = req.body || {};
+  // ✅ Zeydoo kabhi POST body me, kabhi GET query me bhejta hai
+  const payload = req.method === "POST" ? req.body : req.query;
+
   const entry = {
     id: shortid.generate(),
     receivedAt: new Date().toISOString(),
@@ -56,13 +56,13 @@ app.post("/webhook", (req, res) => {
   res.json({ ok: true, id: entry.id });
 });
 
-// 2️⃣ list callbacks
+// 2️⃣ List callbacks
 app.get("/api/callbacks", (req, res) => {
   const data = readData();
   res.json({ ok: true, callbacks: data.callbacks });
 });
 
-// 3️⃣ delete callback
+// 3️⃣ Delete callback
 app.delete("/api/callbacks/:id", (req, res) => {
   const data = readData();
   const idx = data.callbacks.findIndex((c) => c.id === req.params.id);
