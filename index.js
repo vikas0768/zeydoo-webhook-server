@@ -2,14 +2,14 @@ const express = require("express");
 const cors = require("cors");
 const bodyParser = require("body-parser");
 const shortid = require("shortid");
-const fs = require("fs");
-const path = require("path");
+const { MongoClient } = require("mongodb");
 
 const app = express();
 const PORT = process.env.PORT || 3000;
 const WEBHOOK_SECRET = process.env.WEBHOOK_SECRET || "vik@zeydoo";
+const MONGO_URI = process.env.MONGO_URI;
+const DB_NAME = process.env.DB_NAME || "zeydoo_webhook";
 
-// ✅ Enable CORS for your GitHub dashboard
 app.use(cors({
   origin: ["https://vikas0768.github.io", "http://localhost:3000"],
   methods: ["GET", "POST", "DELETE"],
@@ -19,85 +19,70 @@ app.use(cors({
 app.use(bodyParser.json());
 app.use(bodyParser.urlencoded({ extended: true }));
 
-// ✅ JSON file for storing callbacks permanently
-const DATA_FILE = path.join(__dirname, "callbacks.json");
+// ✅ MongoDB connect
+let db;
+async function connectDB() {
+  const client = new MongoClient(MONGO_URI);
+  await client.connect();
+  db = client.db(DB_NAME);
+  console.log("✅ Connected to MongoDB");
+}
+connectDB();
 
-// Create file if not exist
-if (!fs.existsSync(DATA_FILE)) {
-  fs.writeFileSync(DATA_FILE, JSON.stringify({ callbacks: [] }, null, 2));
+// ✅ Webhook (POST or GET)
+async function saveCallback(entry) {
+  const collection = db.collection("callbacks");
+  await collection.insertOne(entry);
 }
 
-// Helpers for reading/writing file
-function readData() {
-  try {
-    return JSON.parse(fs.readFileSync(DATA_FILE));
-  } catch {
-    return { callbacks: [] };
-  }
-}
-
-function writeData(data) {
-  fs.writeFileSync(DATA_FILE, JSON.stringify(data, null, 2));
-}
-
-// ✅ Webhook POST
-app.post("/webhook", (req, res) => {
-  const incoming = req.header("x-webhook-secret") || req.query.secret || "";
-  if (WEBHOOK_SECRET && incoming !== WEBHOOK_SECRET) {
+// POST
+app.post("/webhook", async (req, res) => {
+  const incoming = req.query.secret || req.header("x-webhook-secret") || "";
+  if (WEBHOOK_SECRET && incoming !== WEBHOOK_SECRET)
     return res.status(401).json({ ok: false, message: "Invalid secret" });
-  }
 
   const entry = {
     id: shortid.generate(),
     method: "POST",
     receivedAt: new Date().toISOString(),
-    raw: req.body || {},
+    data: req.body || {},
   };
 
-  const data = readData();
-  data.callbacks.unshift(entry);
-  if (data.callbacks.length > 1000) data.callbacks = data.callbacks.slice(0, 1000);
-  writeData(data);
-
+  await saveCallback(entry);
   res.json({ ok: true, id: entry.id });
 });
 
-// ✅ Webhook GET
-app.get("/webhook", (req, res) => {
+// GET
+app.get("/webhook", async (req, res) => {
   const incoming = req.query.secret || "";
-  if (WEBHOOK_SECRET && incoming !== WEBHOOK_SECRET) {
+  if (WEBHOOK_SECRET && incoming !== WEBHOOK_SECRET)
     return res.status(401).json({ ok: false, message: "Invalid secret" });
-  }
 
   const entry = {
     id: shortid.generate(),
     method: "GET",
     receivedAt: new Date().toISOString(),
-    raw: req.query || {},
+    data: req.query || {},
   };
 
-  const data = readData();
-  data.callbacks.unshift(entry);
-  if (data.callbacks.length > 1000) data.callbacks = data.callbacks.slice(0, 1000);
-  writeData(data);
-
+  await saveCallback(entry);
   res.json({ ok: true, id: entry.id });
 });
 
-// ✅ Get all callbacks
-app.get("/api/callbacks", (req, res) => {
-  const data = readData();
-  res.json({ ok: true, callbacks: data.callbacks });
+// ✅ List callbacks
+app.get("/api/callbacks", async (req, res) => {
+  const collection = db.collection("callbacks");
+  const data = await collection.find().sort({ _id: -1 }).limit(500).toArray();
+  res.json({ ok: true, callbacks: data });
 });
 
-// ✅ Delete a specific callback
-app.delete("/api/callbacks/:id", (req, res) => {
-  const data = readData();
-  data.callbacks = data.callbacks.filter(c => c.id !== req.params.id);
-  writeData(data);
+// ✅ Delete callback
+app.delete("/api/callbacks/:id", async (req, res) => {
+  const collection = db.collection("callbacks");
+  await collection.deleteOne({ id: req.params.id });
   res.json({ ok: true });
 });
 
-app.get("/", (req, res) => res.send("✅ Zeydoo Webhook Server Running with JSON storage!"));
+app.get("/", (req, res) => res.send("✅ Zeydoo Webhook Server Running with MongoDB!"));
 
-app.listen(PORT, () => console.log(`✅ Server running on port ${PORT}`));
+app.listen(PORT, () => console.log(`🚀 Server running on port ${PORT}`));
